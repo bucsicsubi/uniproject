@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<link rel="icon" type="image/ico" href="/uniproject/favicon.ico"/>
+    <meta charset=utf-8>
+    <title>Three.js Blender Geometry App</title>
+    <style>
+        body { 
+			margin: 0; 
+			overflow: hidden 
+		}
+        canvas { 
+			width: 80%; 
+			margin: auto; 
+		}
+		
+        button {
+			background-color: #4CAF50;
+	  		border: 1px solid black;
+			color: white;
+			padding: 15px 32px;
+			position: relative;
+			left: 30px;
+			top: 30px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+		}
+    
+    </style>
+</head>
+
+<body>
+
+<button type="button" onclick="changeBg('javascript')">Javascript</button>
+<button type="button" onclick="changeBg('c')">C</button>
+<button type="button" onclick="changeBg('assembly')">Assembly</button>
+
+<script src="/uniproject/three.min.js"> </script>
+<script>
+	import('/uniproject/OBJLoader.js').then(m => window.module = m).then(() => {window.loader = new window.module.OBJLoader()}).then(() => {
+    // Globális változók
+    let  WIDTH, HEIGHT, aspectRatio;
+    window.scene, window.camera;
+    window.meshLoaded;
+    window.renderer;
+    window.light1;
+
+    window.loading = function(imgName) {
+        window.loader.load(
+            // Forrás URL
+            '/uniproject/deer.obj',
+            // Modell betöltése utáni függvény
+            function ( loaded ) {
+                // A loaded egy THREE.Group objektum lesz, amelynek a gyermeke(i) a mesh(-ek)!
+                window.meshLoaded = loaded;
+                window.meshLoaded.scale.set( 0.04, 0.04, 0.04 );
+
+                // Anyag hozzárendelés
+                window.meshLoaded.traverse( function ( child ) {
+                    if ( child instanceof THREE.Mesh ) {
+                        mat = new THREE.MeshLambertMaterial( {color: 0x2080f0, side: THREE.DoubleSide} );
+                        child.material = mat;
+                    }
+                } );
+
+                init(imgName);
+            },
+            // Betöltés előrehaladása közben hívódik
+            function ( xhr ) {
+                console.log( ( xhr.loaded / xhr.total * 100 ) + '% loaded' );
+            },
+            // Hibás betöltés esetén
+            function ( error ) {
+                console.log( 'An error happened' );
+            });
+    }
+
+    function init(imgName) {
+        
+		window.bgHeight = 934;
+		window.bgWidth = 1380;
+
+        // Színtér létrehozása
+        window.scene = new THREE.Scene();
+
+		// Háttérkép létrehozása
+        const loader = new THREE.TextureLoader();
+        let bgTexture = loader.load(imgName, function (texture){
+			window.bgHeight =  texture.image.height;
+			window.bgWidth =  texture.image.width;
+		});
+        window.scene.background = bgTexture;
+		
+		// Böngésző ablakméret lekérése és méretarány számítása
+        WIDTH = window.bgWidth;
+        HEIGHT = window.bgHeight;
+        aspectRatio = WIDTH / HEIGHT;
+		
+        // Renderer létrehozása és DOM-hoz adása
+        window.renderer = new THREE.WebGLRenderer( { antialias: true } );
+        if (window.bgWidth < window.innerWidth){
+			if (window.bgHeight < window.innerHeight){
+				window.renderer.setSize(window.bgWidth, window.bgHeight);
+			} else {
+				window.renderer.setSize(window.bgWidth/(window.bgHeight/window.innerHeight), window.innerHeight)
+			}
+		} else {
+			if (window.bgHeight < window.innerHeight){
+				window.renderer.setSize(window.innerWidth, window.bgHeight/(window.bgWidth/window.innerHeight))
+			} else {
+				window.renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+		}
+        window.renderer.setClearColor( 0x202020 );
+        document.body.appendChild( window.renderer.domElement );
+
+        // Kamera létrehozása és vetítési paramétereinek beállítása
+        window.camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
+        //window.camera.position.z = 25;
+        window.camera.position.set( 25, 25, 25 );
+
+        
+
+        // Betöltött objektum színtérhez adása
+        window.scene.add( window.meshLoaded );
+
+        // Fények
+        let lightA = new THREE.AmbientLight( 0x404040 );
+        window.scene.add( lightA );
+
+        light1 = new THREE.SpotLight( 0xffffff, 1  );
+        light1.position.set( 0, 0, 30 );
+        light1.angle = Math.PI / 4;
+        window.scene.add( light1 );
+        //var sLH1 = new THREE.SpotLightHelper( light1 );
+        //window.scene.add( sLH1 );
+
+        // Az ablak átméretezése esetén visszahívható függvény megadása
+        window.addEventListener( 'resize', handleWindowResize, false );
+
+        window.camera.lookAt( window.scene.position );
+        // Első képkocka rajzolása
+        render();
+    }
+
+    function handleWindowResize() {
+        // Az ablak átméretezése esetén a kamera vetítési paraméterek újraszámolása
+        HEIGHT = window.bgHeight;
+        WIDTH = window.bgWidth;
+        if (window.bgWidth < window.innerWidth){
+			if (window.bgHeight < window.innerHeight){
+				window.renderer.setSize(window.bgWidth, window.bgHeight);
+			} else {
+				window.renderer.setSize(window.bgWidth/(window.bgHeight/window.innerHeight), window.innerHeight)
+			}
+		} else {
+			if (window.bgHeight < window.innerHeight){
+				window.renderer.setSize(window.innerWidth, window.bgHeight/(window.bgWidth/window.innerHeight))
+			} else {
+				window.renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+		}
+        window.camera.aspect = WIDTH / HEIGHT;
+        window.camera.updateProjectionMatrix();
+    }
+
+    let render = function () {
+        // Újabb képkocka rajzolásának kérése.
+        // Maximálisan 60 FPS-t biztosít a rendszer.
+        requestAnimationFrame(render);
+
+        // Objektum elforgatási paraméterének módosítása
+        window.meshLoaded.rotation.x += 0;
+        window.meshLoaded.rotation.y += 0.001;
+
+        // 3D -> 2D vetített kép kiszámítása.
+        // scene 3D színtér képe a camera kamera szemszögéből.
+        window.renderer.render(window.scene, window.camera);
+    };
+}).then(() => { document.getElementsByTagName("body")[0].onload = window.loading("/uniproject/img/assembly.png"); });
+
+function changeBg(imgName){
+	window.scene.background = new THREE.TextureLoader().load('/uniproject/img/'+imgName+'.png', function (texture){
+		window.bgHeight =  texture.image.height;
+		window.bgWidth =  texture.image.width;
+	})
+	if (window.bgWidth < window.innerWidth){
+			if (window.bgHeight < window.innerHeight){
+				window.renderer.setSize(window.bgWidth, window.bgHeight);
+			} else {
+				window.renderer.setSize(window.bgWidth/(window.bgHeight/window.innerHeight), window.innerHeight)
+			}
+		} else {
+			if (window.bgHeight < window.innerHeight){
+				window.renderer.setSize(window.innerWidth, window.bgHeight/(window.bgWidth/window.innerHeight))
+			} else {
+				window.renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+		}
+}
+</script>
+</body>
+</html>
